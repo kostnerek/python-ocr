@@ -5,61 +5,80 @@ import ctypes
 import pyautogui
 import os
 
+from PIL import Image
+import pytesseract
+
+class Ocr:
+    def __init__(self, filePath, url,  api=False):
+        self.filePath = filePath
+        self.api = api
+        self.url = url
+
+        self.processImage()
+        data = self.getDataFromImage()
+        print(data)
+        self.sendToAPI(data)
+
+    #uses external API to parse image to text
+    def ocrAPI(self, overlay=False, api_key='fc0d1ddf2788957', language='pol'):
+        payload = {'isOverlayRequired': overlay,
+                'apikey': api_key,
+                'language': language,
+                }
+        with open(self.filePath, 'rb') as f:
+            r = requests.post('https://api.ocr.space/parse/image',
+                            files={self.filePath: f},
+                            data=payload,
+                            )
+        text = r.content.decode("utf-8")
+        parsedText = text[text.find("ParsedText")+13:text.find("ErrorMessage")-3].replace("\\r\\n"," ")
+        return parsedText
+
+    #uses internal program 'tesseract' to parse image to text
+    def ocrTesseract(self):
+        return pytesseract.image_to_string(Image.open(self.filePath), config='--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789')
 
 
+    def processImage(self):
+        #makes screenshot
+        myScreenshot = pyautogui.screenshot(region=(0,80,100,30))
+        myScreenshot.save(self.filePath)
 
-def ocr_space_file(filename, overlay=False, api_key='fc0d1ddf2788957', language='eng'):
-    payload = {'isOverlayRequired': overlay,
-               'apikey': api_key,
-               'language': language,
-               }
-    with open(filename, 'rb') as f:
-        r = requests.post('https://api.ocr.space/parse/image',
-                          files={filename: f},
-                          data=payload,
-                          )
-    return r.content
+        #makes screenshot bw
+        img = Image.open(self.filePath)
+        thresh = 200
+        fn = lambda x : 255 if x > thresh else 0
+        r = img.convert('L').point(fn, mode='1')
+        r.save(self.filePath)
+
+    #determines way to get text from image
+    def getDataFromImage(self):
+        if(self.api == False):
+            return self.ocrTesseract()
+        else:
+            return self.ocrAPI()
+        
+    def sendToAPI(self, data):
+        requests.get(self.url, {'data':data})
+
+    def callApi(self):
+        return requests.get(self.url, {'data':'2137'})
 
 
+filePath = os.getcwd()+"\\screen.png"
+url = 'http://emsonlabels.site/python.php'
 
-def getParsedText(file_name):
-    fileSend = ocr_space_file(filename=file_name, language='pol').decode("utf-8")
-    parsedText = fileSend[fileSend.find("ParsedText")+13:fileSend.find("ErrorMessage")-3].replace("\\r\\n"," ")
-    return parsedText
-
-def parseImage(filePath):
-    myScreenshot = pyautogui.screenshot(region=(0,80,300,30))
-    myScreenshot.save(filePath)
-    parsedText = getParsedText(filePath)
-    #os.remove(filePath)
-
-    return parsedText
-
-def DetectClick(button, watchtime = 5):
-    '''Waits watchtime seconds. Returns True on click, False otherwise'''
-    if button in (1, '1', 'l', 'L', 'left', 'Left', 'LEFT'):
-        bnum = 0x01
-    elif button in (2, '2', 'r', 'R', 'right', 'Right', 'RIGHT'):
-        bnum = 0x02
-
-    start = time.time()
-    while 1:
-        if ctypes.windll.user32.GetKeyState(bnum) not in [0, 1]:
-            # ^ this returns either 0 or 1 when button is not being held down
-            print(pyautogui.position())
-            return True
-        elif time.time() - start >= watchtime:
-            break
-        time.sleep(0.001)
-    return False
-
-filePath = os.getcwd()+"\\screen.jpg"
 
 i=0
 while i>=0:
-    DetectClick('left')
+    ocr = Ocr(filePath, url)
+    time.sleep(0.5)
+
+
+
+
 
 """ for x in range(99):
     print(parseImage(filePath))
-    time.sleep(1) """
+     """
 
