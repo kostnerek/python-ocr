@@ -72,13 +72,6 @@ url = 'http://emsonlabels.site/python.php'
 i=0
 while i>=0:
     ocr = Ocr(filePath, url)
-    time.sleep(0.5)
+    time.sleep(0.1)
 
-
-
-
-
-""" for x in range(99):
-    print(parseImage(filePath))
-     """
 
